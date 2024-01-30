@@ -35,6 +35,12 @@ In this sample, I shows how to automate the deployment via Terraform of an [Azur
 
 [Crossplane](https://docs.crossplane.io/latest/) is an open source Kubernetes extension that transforms your Kubernetes cluster into a universal control plane. Crossplane lets you manage anything, anywhere, all through standard Kubernetes APIs. Crossplane can even let you order a pizza directly from Kubernetes. If it has an API, Crossplane can connect to it. With Crossplane, platform teams can create new abstractions and custom APIs with the full power of Kubernetes policies, namespaces, role based access controls and more. Crossplane brings all your non-Kubernetes resources under one roof. Custom APIs, created by platform teams, allow security and compliance enforcement across resources or clouds, without exposing any complexity to the developers. A single API call can create multiple resources, in multiple clouds and use Kubernetes as the control plane for everything.
 
+For more information, see:
+
+- [Crossplane Overview](https://docs.crossplane.io/latest/)
+- [Crossplane Getting Started](https://docs.crossplane.io/latest/getting-started/)
+- [Crossplane Azure Quickstart](https://docs.crossplane.io/v1.14/getting-started/provider-azure/)
+
 > **NOTE**  
 > You can find the `architecture.vsdx` file used for the diagram under the `visio` folder.
 
@@ -93,6 +99,284 @@ This project provides a set of Terraform modules to deploy thw following resourc
 - [Prometheus](https://prometheus.io/): the AKS cluster is configured to collect metrics to the [Azure Monitor workspace](https://learn.microsoft.com/en-us/azure/azure-monitor/essentials/azure-monitor-workspace-overview) and [Azure Managed Grafana](https://learn.microsoft.com/en-us/azure/managed-grafana/overview). Nonetheless, the [kube-prometheus-stack](https://artifacthub.io/packages/helm/prometheus-community/kube-prometheus-stack) Helm chart is used to install [Prometheus](https://prometheus.io/) and [Grafana](https://grafana.com/) on the AKS cluster.
 - Workload namespace and service account: the [Kubectl Terraform Provider](https://registry.terraform.io/providers/cpanato/kubectl/latest/docs) and [Kubernetes Terraform Provider](https://registry.terraform.io/providers/hashicorp/kubernetes/latest/docs) are used to create the namespace and service account used by the chat applications.
 - Azure Monitor ConfigMaps for [Azure Monitor managed service for Prometheus](https://learn.microsoft.com/en-us/azure/azure-monitor/essentials/prometheus-metrics-overview) and `cert-manager` [Cluster Issuer](https://cert-manager.io/docs/configuration/) are deployed using the [Kubectl Terraform Provider](https://registry.terraform.io/providers/cpanato/kubectl/latest/docs) and [Kubernetes Terraform Provider](https://registry.terraform.io/providers/hashicorp/kubernetes/latest/docs).`
+
+## Test Scripts
+
+The `scripts` folder contains the following files Bash scripts to test Crossplane when the deployment completed. 
+
+### Composite Resource Definition
+
+The following script creates a test [CompositeResourceDefinition](https://docs.crossplane.io/latest/concepts/composite-resource-definitions/). Composite resource definitions (XRDs) define the schema for a custom API. The XRD `spec` contains all the information about the API including the `group`, `version`, `kind` and `schema`. The XRD’s `name` must be the combination of the `plural` and `group`. The `schema` uses the `OpenAPIv3` specification to define the API `spec`. The API defines a `location` that must be `oneOf` either `EU` or `US`. Apply this XRD to create the custom API in your Kubernetes cluster.
+
+```bash
+#!/bin/bash
+
+# Create the CompositeResourceDefinition for the VirtualMachine resource
+cat <<EOF | kubectl apply -f -
+apiVersion: apiextensions.crossplane.io/v1
+kind: CompositeResourceDefinition
+metadata:
+  name: virtualmachines.compute.example.com
+spec:
+  group: compute.example.com
+  names:
+    kind: VirtualMachine
+    plural: virtualmachines
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        type: object
+        properties:
+          spec:
+            type: object
+            properties:
+              location:
+                type: string
+                oneOf:
+                  - pattern: '^EU$'
+                  - pattern: '^US$'
+            required:
+              - location
+    served: true
+    referenceable: true
+  claimNames:
+    kind: VirtualMachineClaim
+    plural: virtualmachineclaims
+EOF
+```
+
+Adding the `claimNames` allows you to access this API either at the cluster level with the `VirtualMachine` endpoint or in a namespace with the `VirtualMachineClaim` endpoint. The namespace scoped API is a Crossplane [Claim](https://docs.crossplane.io/latest/concepts/claims/).
+
+> **NOTE**  
+> For more details on the fields and options of Composite Resource Definitions read the [XRD documentation](https://docs.crossplane.io/latest/concepts/composite-resource-definitions/).
+
+You can display the installed XRD with the `kubectl get xrd` command.
+
+```bash
+1kubectl get xrd
+2NAME                                  ESTABLISHED   OFFERED   AGE
+3virtualmachines.compute.example.com   True          True      43s
+```
+
+You can view the new custom API endpoints running the `kubectl api-resources | grep VirtualMachine` command.
+
+```shell
+1kubectl api-resources | grep VirtualMachine
+2virtualmachineclaims              compute.example.com/v1alpha1           true         VirtualMachineClaim
+3virtualmachines                   compute.example.com/v1alpha1           false        VirtualMachine
+```
+
+## Composition
+
+When you access the custom API Crossplane takes their inputs and combines them with a template describing what infrastructure to deploy. Crossplane calls this template a [Composition](https://docs.crossplane.io/latest/concepts/compositions/). A `Composition` defines all the cloud resources to deploy. Each entry in the template is a full resource definitions, defining all the resource settings and metadata like labels and annotations. This template creates an Azure `LinuxVirtualMachine` `NetworkInterface`, `Subnet` `VirtualNetwork` and `ResourceGroup`. Crossplane uses `patches` to apply your input to the resource template. This `Composition` takes your `location` input and uses it as the `location` used in the individual resource. Apply this `Composition` to your cluster.
+
+```bash
+#!/bin/bash
+
+# Create the Composition for the VirtualMachine resource
+cat <<EOF | kubectl apply -f -
+apiVersion: apiextensions.crossplane.io/v1
+kind: Composition
+metadata:
+  name: crossplane-quickstart-vm-with-network
+spec:
+  resources:
+    - name: quickstart-vm
+      base:
+        apiVersion: compute.azure.upbound.io/v1beta1
+        kind: LinuxVirtualMachine
+        spec:
+          forProvider:
+            adminUsername: adminuser
+            adminSshKey:
+              - publicKey: ssh-rsa
+                  AAAAB3NzaC1yc2EAAAADAQABAAABAQC+wWK73dCr+jgQOAxNsHAnNNNMEMWOHYEccp6wJm2gotpr9katuF/ZAdou5AaW1C61slRkHRkpRRX9FA9CYBiitZgvCCz+3nWNN7l/Up54Zps/pHWGZLHNJZRYyAB6j5yVLMVHIHriY49d/GZTZVNB8GoJv9Gakwc/fuEZYYl4YDFiGMBP///TzlI4jhiJzjKnEvqPFki5p2ZRJqcbCiF4pJrxUQR/RXqVFQdbRLZgYfJ8xGB878RENq3yQ39d8dVOkq4edbkzwcUmwwwkYVPIoDGsYLaRHnG+To7FvMeyO7xDVQkMKzopTQV8AuKpyvpqu0a9pWOMaiCyDytO7GGN
+                  example@docs.crossplane.io
+                username: adminuser
+            location: "Central US"
+            osDisk:
+              - caching: ReadWrite
+                storageAccountType: Standard_LRS
+            resourceGroupNameSelector:
+              matchControllerRef: true
+            size: Standard_B1ms
+            sourceImageReference:
+              - offer: debian-11
+                publisher: Debian
+                sku: 11-backports-gen2
+                version: latest
+            networkInterfaceIdsSelector:
+              matchControllerRef: true
+      patches:
+        - type: FromCompositeFieldPath
+          fromFieldPath: "spec.location"
+          toFieldPath: "spec.forProvider.location"
+          transforms:
+            - type: map
+              map: 
+                EU: "Sweden Central"
+                US: "Central US"
+    - name: quickstart-nic
+      base:
+        apiVersion: network.azure.upbound.io/v1beta1
+        kind: NetworkInterface
+        spec:
+          forProvider:
+            ipConfiguration:
+              - name: crossplane-quickstart-configuration
+                privateIpAddressAllocation: Dynamic
+                subnetIdSelector:
+                  matchControllerRef: true
+            location: "Central US"
+            resourceGroupNameSelector:
+              matchControllerRef: true
+      patches:
+        - type: FromCompositeFieldPath
+          fromFieldPath: "spec.location"
+          toFieldPath: "spec.forProvider.location"
+          transforms:
+            - type: map
+              map: 
+                EU: "Sweden Central"
+                US: "Central US"            
+    - name: quickstart-subnet
+      base:
+        apiVersion: network.azure.upbound.io/v1beta1
+        kind: Subnet
+        spec:
+          forProvider:
+            addressPrefixes:
+              - 10.0.1.0/24
+            virtualNetworkNameSelector:
+              matchControllerRef: true
+            resourceGroupNameSelector:
+              matchControllerRef: true
+    - name: quickstart-network
+      base:
+        apiVersion: network.azure.upbound.io/v1beta1
+        kind: VirtualNetwork
+        spec:
+          forProvider:
+            addressSpace:
+              - 10.0.0.0/16
+            location: "Central US"
+            resourceGroupNameSelector:
+              matchControllerRef: true
+      patches:
+        - type: FromCompositeFieldPath
+          fromFieldPath: "spec.location"
+          toFieldPath: "spec.forProvider.location"
+          transforms:
+            - type: map
+              map: 
+                EU: "Sweden Central"
+                US: "Central US"
+    - name: crossplane-resourcegroup
+      base:
+        apiVersion: azure.upbound.io/v1beta1
+        kind: ResourceGroup
+        spec:
+          forProvider:
+            location: Central US
+      patches:
+        - type: FromCompositeFieldPath
+          fromFieldPath: "spec.location"
+          toFieldPath: "spec.forProvider.location"
+          transforms:
+            - type: map
+              map: 
+                EU: "Sweden Central"
+                US: "Central US"
+  compositeTypeRef:
+    apiVersion: compute.example.com/v1alpha1
+    kind: VirtualMachine
+EOF
+```
+
+The `compositeTypeRef` defines which custom APIs can use this template to create resources.
+
+> **NOTE**  
+> Read the [Composition documentation](https://docs.crossplane.io/latest/concepts/compositions/) for more information on configuring Compositions and all the available options.
+
+Read the [Patch and Transform documentation](https://docs.crossplane.io/latest/concepts/patch-and-transform/) for more information on how Crossplane uses patches to map your inputs to `Composition` resource templates. You can view the `Composition` by running the `kubectl get composition` command:
+
+```shell
+1kubectl get composition
+2NAME                                    XR-KIND           XR-APIVERSION                     AGE
+3crossplane-quickstart-vm-with-network   XVirtualMachine   custom-api.example.org/v1alpha1   77s
+```
+
+## Composite Resources and Managed Resources
+
+With the custom API (`XRD`) installed and associated to a resource template (`Composition`), you can access the API to create resources. Create a `VirtualMachine` object to create the cloud resources.
+
+```bash
+#!/bin/bash
+
+# Variables
+name="bingo"
+location="EU"
+
+# With the custom API (XRD) installed and associated to a resource template (Composition) users can access the API to create resources.
+# Create a VirtualMachine object to create the cloud resources.
+cat <<EOF | kubectl apply -f -
+apiVersion: compute.example.com/v1alpha1
+kind: VirtualMachine
+metadata:
+  name: $name
+spec: 
+  location: $location
+EOF
+```
+
+You can  the resource with the `kubectl get VirtualMachine` command.
+
+> **NOTE**  
+> It may take up to five minutes for the resources to provision.
+
+```bash
+kubectl get VirtualMachine
+NAME    SYNCED   READY   COMPOSITION                             AGE
+bingo   True     True    crossplane-quickstart-vm-with-network   3m3s
+```
+
+This object is a Crossplane [Composite Resource (XR)](https://docs.crossplane.io/latest/concepts/composite-resources/). It’s a single object representing the collection of resources created from the Composition template. You can view the individual resources by running the `kubectl get managed` command.
+
+```bash
+kubectl get managed
+NAME                                         READY   SYNCED   EXTERNAL-NAME   AGE
+resourcegroup.azure.upbound.io/bingo-7jb4n   True    True     bingo-7jb4n     3m43s
+ 
+NAME                                                       READY   SYNCED   EXTERNAL-NAME   AGE
+linuxvirtualmachine.compute.azure.upbound.io/bingo-5h7p4   True    True     bingo-5h7p4     3m43s
+
+NAME                                                    READY   SYNCED   EXTERNAL-NAME   AGE
+networkinterface.network.azure.upbound.io/bingo-j7fpx   True    True     bingo-j7fpx     3m43s
+
+NAME                                          READY   SYNCED   EXTERNAL-NAME   AGE
+subnet.network.azure.upbound.io/bingo-b2dqt   True    True     bingo-b2dqt     3m43s
+
+NAME                                                  READY   SYNCED   EXTERNAL-NAME   AGE
+virtualnetwork.network.azure.upbound.io/bingo-pd2sw   True    True     bingo-pd2sw     3m43s
+```
+
+Accessing the API created all five resources defined in the template and linked them together. Look at a specific resource to see it’s created in the location used in the API.
+
+```yaml
+kubectl describe linuxvirtualmachine | grep Location
+    Location:                         Sweden Central
+    Location:                         swedencentral
+```
+
+You can delete the resources with the `kubectl delete VirtualMachine` command.
+
+```bash
+kubectl delete VirtualMachine bingo
+virtualmachine.compute.example.com "bingo" deleted
+```
+
+Verify Crossplane deleted the resources with `kubectl get managed` after a few minutes.
 
 ## MIT License
 
