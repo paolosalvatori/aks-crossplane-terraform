@@ -261,7 +261,7 @@ resource "azurerm_user_assigned_identity" "aks_workload_identity" {
 resource "azurerm_role_assignment" "owner_assignment" {
   scope                = data.azurerm_subscription.current.id
   role_definition_name = "Owner"
-  principal_id         = module.aks_cluster.kubelet_identity_client_id
+  principal_id         = module.aks_cluster.kubelet_identity_object_id
   skip_service_principal_aad_check = true
 }
 
