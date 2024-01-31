@@ -20,19 +20,3 @@ crossplane_provider_packages             = ["xpkg.upbound.io/upbound/provider-az
                                             "xpkg.upbound.io/upbound/provider-azure-containerregistry:v0.42.0",
                                             "xpkg.upbound.io/upbound/provider-azure-compute:v0.42.0"]
 openai_enabled                           = false
-openai_deployments      = [
-  {
-    name = "gpt-35-turbo-16k"
-    model = {
-      name = "gpt-35-turbo-16k"
-      version = "0613"
-    }
-  },
-  {
-    name = "text-embedding-ada-002"
-    model = {
-      name = "text-embedding-ada-002"
-      version = "2"
-    }
-  }
-]
