@@ -1,7 +1,7 @@
 name_prefix                              = "Pitfall"
 domain                                   = "babosbird.com"
 kubernetes_version                       = "1.28.3"  
-ssh_public_key                           = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDDRHrICSTesKCNyH6vN4K3YwhDUO89cqnEDz2bcZ0sLn9mU6hwyXHna5vME8Y/A8Jbj4XiMyePbAJsX8R/Yyq5pZSiqYpPqSdRGOGqKxQPMBE8WFN1RZmrbrb0ElVQtdWWhlCis4PyMn76fbH6Q8zf/cPzzm9GTimVw62BGhdqdHHru7Sy3I+WRGVA3Z2xHqpda+4nd9LYQW3zkHP98TbIM5OW8kVhRUtmg3c0tOViU6CsGP9w4FU8TU7wLWoeig69kv6UgikwnJYXkItiLecCbVqOeGwbHZQmawcqEY674E3jgJkJ5nQVblCODR0ODNCtrCDVyT6pX0Hdt1ivIpkf"
+ssh_public_key                           = "ssh-rsa XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
 vm_enabled                               = true
 location                                 = "northeurope"
 admin_group_object_ids                   = ["4e4d0501-e693-4f3e-965b-5bec6c410c03"]
