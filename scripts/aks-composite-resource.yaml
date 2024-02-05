@@ -1,0 +1,42 @@
+apiVersion: kubernetes.example.com/v1alpha1
+kind: XAksCluster
+metadata:
+  name: sandokan
+  annotations:
+    crossplane.io/external-name: Sandokan
+spec: 
+  location: "North Europe"
+  aks:
+    defaultNodePool:
+      name: default
+      nodeCount: 3
+      vmSize: Standard_F8s_v2
+      enableAutoScaling: true
+      minCount: 3
+      maxCount: 20
+      maxPods: 30
+    kubernetesVersion: "1.28.3"
+    roleBasedAccessControlEnabled: true
+    azureActiveDirectoryRoleBasedAccessControl:
+      - adminGroupObjectIds:
+          - 4e4d0501-e693-4f3e-965b-5bec6c410c03
+        azureRbacEnabled: true
+        managed: true
+    azurePolicyEnabled: true
+    networkProfile:    
+      - dnsServiceIp: 172.16.0.10
+        networkPlugin: azure
+        serviceCidr: 172.16.0.0/16
+    tags:
+      environment: Test
+      provisionedBy: Crossplane
+  subnet:
+    addressPrefixes:
+      - 10.0.0.0/16
+  virtualNetwork:
+    addressSpace:
+      - 10.0.0.0/8
+    tags:
+      environment: Test
+      provisionedBy: Crossplane
+    

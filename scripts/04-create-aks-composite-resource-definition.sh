@@ -5,36 +5,5 @@
 # https://docs.crossplane.io/latest/getting-started/provider-azure-part-2/
 # https://marketplace.upbound.io/providers?query=azure
 
-# Create the CompositeResourceDefinition for the Aks resource
-cat <<EOF | kubectl apply -f -
-apiVersion: apiextensions.crossplane.io/v1
-kind: CompositeResourceDefinition
-metadata:
-  name: aksclusters.compute.example.com
-spec:
-  group: compute.example.com
-  names:
-    kind: AksCluster
-    plural: aksclusters
-  versions:
-  - name: v1alpha1
-    schema:
-      openAPIV3Schema:
-        type: object
-        properties:
-          spec:
-            type: object
-            properties:
-              location:
-                type: string
-                oneOf:
-                  - pattern: '^EU$'
-                  - pattern: '^US$'
-            required:
-              - location
-    served: true
-    referenceable: true
-  claimNames:
-    kind: AksClusterClaim
-    plural: aksclusterclaims
-EOF
+# Create the CompositeResourceDefinition for the AKS resource
+kubectl apply -f aks-composite-resource-definition.yaml

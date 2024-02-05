@@ -1,0 +1,194 @@
+
+apiVersion: apiextensions.crossplane.io/v1
+kind: Composition
+metadata:
+  name: aks-with-virtual-network
+spec:
+  patchSets:
+    - name: location-patch
+      patches:
+      - type: FromCompositeFieldPath
+        fromFieldPath: spec.location
+        toFieldPath: spec.forProvider.location
+    - name: metadata-patch
+      patches:
+      - type: FromCompositeFieldPath
+        fromFieldPath: metadata.annotations
+        toFieldPath: metadata.annotations
+  resources:
+    - name: aks-cluster
+      base:
+        apiVersion: containerservice.azure.upbound.io/v1beta1
+        kind: KubernetesCluster
+        spec:
+          forProvider:
+            defaultNodePool:
+              - name: default
+                nodeCount: 3
+                minCount: 3
+                maxCount: 5
+                vmSize: Standard_F8s_v2
+                enableAutoScaling: true
+                maxPods: 30
+                osDiskSizeGB: 128
+                type: VirtualMachineScaleSets
+                vnetSubnetIdSelector:
+                  matchControllerRef: true
+            kubernetesVersion: 1.27.7
+            dnsPrefix: galaga
+            identity:
+              - type: SystemAssigned
+            location: West Europe
+            resourceGroupNameSelector:
+              matchControllerRef: true
+            roleBasedAccessControlEnabled: true
+            azureActiveDirectoryRoleBasedAccessControl:
+              - adminGroupObjectIds:
+                  - 4e4d0501-e693-4f3e-965b-5bec6c410c03
+                azureRbacEnabled: true
+                managed: true
+            azurePolicyEnabled: true
+            networkProfile:    
+              - dnsServiceIp: 172.16.0.10
+                networkPlugin: azure
+                serviceCidr: 172.16.0.0/16
+            tags:
+              Environment: Production
+      patches:
+        - type: PatchSet
+          patchSetName: location-patch
+        - type: PatchSet
+          patchSetName: metadata-patch
+        - type: FromCompositeFieldPath
+          fromFieldPath: metadata.annotations[crossplane.io/external-name]
+          toFieldPath: metadata.annotations[crossplane.io/external-name]
+          transforms:
+          - type: string
+            string:
+              fmt: "%sAks"
+        - type: FromCompositeFieldPath
+          fromFieldPath: metadata.annotations[crossplane.io/external-name]
+          toFieldPath: spec.forProvider.dnsPrefix
+          transforms:
+          - type: string
+            string:
+              type: Convert
+              convert: "ToLower"
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.aks.defaultNodePool.name
+          toFieldPath: spec.forProvider.defaultNodePool[0].name
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.aks.defaultNodePool.nodeCount
+          toFieldPath: spec.forProvider.defaultNodePool[0].nodeCount
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.aks.defaultNodePool.nodeCount
+          toFieldPath: spec.forProvider.defaultNodePool[0].nodeCount
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.aks.defaultNodePool.minCount
+          toFieldPath: spec.forProvider.defaultNodePool[0].minCount
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.aks.defaultNodePool.maxCount
+          toFieldPath: spec.forProvider.defaultNodePool[0].maxCount
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.aks.defaultNodePool.vmSize
+          toFieldPath: spec.forProvider.defaultNodePool[0].vmSize
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.aks.defaultNodePool.enableAutoScaling
+          toFieldPath: spec.forProvider.defaultNodePool[0].enableAutoScaling
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.aks.defaultNodePool.maxPods
+          toFieldPath: spec.forProvider.defaultNodePool[0].maxPods
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.aks.defaultNodePool.type
+          toFieldPath: spec.forProvider.defaultNodePool[0].type
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.aks.kubernetesVersion
+          toFieldPath: spec.forProvider.kubernetesVersion
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.aks.dnsPrefix
+          toFieldPath: spec.forProvider.dnsPrefix
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.aks.roleBasedAccessControlEnabled
+          toFieldPath: spec.forProvider.roleBasedAccessControlEnabled
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.aks.azureActiveDirectoryRoleBasedAccessControl
+          toFieldPath: spec.forProvider.azureActiveDirectoryRoleBasedAccessControl
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.aks.azurePolicyEnabled
+          toFieldPath: spec.forProvider.azurePolicyEnabled
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.aks.networkProfile
+          toFieldPath: spec.forProvider.networkProfile
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.aks.tags
+          toFieldPath: spec.forProvider.tags
+    - name: default-subnet
+      base:
+        apiVersion: network.azure.upbound.io/v1beta1
+        kind: Subnet
+        spec:
+          forProvider:
+            addressPrefixes:
+              - 10.0.0.0/16
+            virtualNetworkNameSelector:
+              matchControllerRef: true
+            resourceGroupNameSelector:
+              matchControllerRef: true
+      patches:
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.subnet.addressPrefixes
+          toFieldPath: spec.forProvider.addressPrefixes
+    - name: virtual-network
+      base:
+        apiVersion: network.azure.upbound.io/v1beta1
+        kind: VirtualNetwork
+        spec:
+          forProvider:
+            addressSpace:
+              - 10.0.0.0/8
+            location: West Europe
+            resourceGroupNameSelector:
+              matchControllerRef: true
+      patches:
+        - type: PatchSet
+          patchSetName: location-patch
+        - type: PatchSet
+          patchSetName: metadata-patch
+        - type: FromCompositeFieldPath
+          fromFieldPath: metadata.annotations[crossplane.io/external-name]
+          toFieldPath: metadata.annotations[crossplane.io/external-name]
+          transforms:
+          - type: string
+            string:
+              fmt: "%sVNet"
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.virtualNetwork.addressSpace
+          toFieldPath: spec.forProvider.addressSpace
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.virtualNetwork.tags
+          toFieldPath: spec.forProvider.tags
+    - name: aks-resourcegroup
+      base:
+        apiVersion: azure.upbound.io/v1beta1
+        kind: ResourceGroup
+        spec:
+          forProvider:
+            location: Central US
+      patches:
+        - type: PatchSet
+          patchSetName: location-patch
+        - type: PatchSet
+          patchSetName: metadata-patch
+        - type: FromCompositeFieldPath
+          fromFieldPath: metadata.annotations[crossplane.io/external-name]
+          toFieldPath: metadata.annotations[crossplane.io/external-name]
+          transforms:
+          - type: string
+            string:
+              fmt: "%sRG"
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.resourceGroup.tags
+          toFieldPath: spec.forProvider.tags
+  compositeTypeRef:
+    apiVersion: kubernetes.example.com/v1alpha1
+    kind: XAksCluster

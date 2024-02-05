@@ -1,0 +1,167 @@
+apiVersion: apiextensions.crossplane.io/v1
+kind: CompositeResourceDefinition
+metadata:
+  name: xaksclusters.kubernetes.example.com
+spec:
+  group: kubernetes.example.com
+  names:
+    kind: XAksCluster
+    plural: xaksclusters
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        type: object
+        properties:
+          spec:
+            type: object
+            properties:
+              location:
+                type: string
+                description: specifies the location of the Azure resources
+              aks:
+                type: object
+                properties:
+                  defaultNodePool:
+                    type: object
+                    properties:
+                      name:
+                        type: string
+                        description: specifies the name of the node pool
+                        default: default
+                      nodeCount:
+                        type: integer
+                        description: specifies the number of nodes in the node pool
+                        default: 3
+                      minCount:
+                        type: integer
+                        description: specifies the minimum number of nodes in the node pool
+                        default: 3
+                      maxCount:
+                        type: integer
+                        description: specifies the maximum number of nodes in the node pool
+                        default: 20
+                      vmSize:
+                        type: string
+                        description: specifies the size of the Virtual Machines making up the node pool
+                        default: Standard_F8s_v2
+                      enableAutoScaling:
+                        type: boolean
+                        description: specifies whether the node pool should automatically adjust the number of nodes
+                        default: true
+                      maxPods:
+                        type: integer
+                        description: specifies the maximum number of pods that can run on a node in the node pool
+                        default: 30
+                      osDiskSizeGB:
+                        type: integer
+                        description: specifies the size of the OS Disk in GB
+                        default: 128
+                      type:
+                        type: string
+                        description: specifies the type of the node pool
+                        default: VirtualMachineScaleSets
+                    required:
+                      - name
+                      - nodeCount
+                      - vmSize
+                      - enableAutoScaling
+                      - minCount
+                      - maxCount
+                      - maxPods
+                      - osDiskSizeGB
+                      - type
+                  kubernetesVersion:
+                    type: string
+                    description: specifies the version of Kubernetes
+                  dnsPrefix:
+                    type: string
+                    description: specifies the DNS prefix to use with the hosted Kubernetes API server FQDN
+                  roleBasedAccessControlEnabled:
+                    type: boolean
+                    description: specifies whether Azure Active Directory Role-Based Access Control is enabled
+                    default: true
+                  azureActiveDirectoryRoleBasedAccessControl:
+                    type: array
+                    description: specifies the Azure Active Directory Role-Based Access Control settings
+                    items:
+                      type: object
+                      properties:
+                        adminGroupObjectIds:
+                          type: array
+                          description: specifies the object IDs of the Azure Active Directory admin groups
+                          items:
+                            type: string
+                        azureRbacEnabled:
+                          type: boolean
+                          description: specifies whether Azure Active Directory Role-Based Access Control is enabled
+                        managed:
+                          type: boolean
+                          description: specifies whether the Azure Active Directory Role-Based Access Control is managed
+                  azurePolicyEnabled:
+                    type: boolean
+                  networkProfile:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        dnsServiceIp:
+                          type: string
+                          description: specifies the IP address of the Kubernetes DNS service
+                        networkPlugin:
+                          type: string
+                          description: specifies the network plugin used for the Kubernetes cluster
+                        serviceCidr:
+                          type: string
+                          description: specifies the IP address range for the services in the Kubernetes cluster
+                  tags:
+                    type: object
+                    description: specifies the tags for the Kubernetes cluster
+                    additionalProperties:
+                      type: string
+                required:
+                  - defaultNodePool
+                  - roleBasedAccessControlEnabled
+                  - azureActiveDirectoryRoleBasedAccessControl
+                  - azurePolicyEnabled
+                  - networkProfile
+              subnet:
+                type: object
+                properties:
+                  addressPrefixes:
+                    type: array
+                    description: specifies the address prefixes for the subnet
+                    items:
+                      type: string
+                      description: specifies the address prefix for the subnet
+                required:
+                  - addressPrefixes
+              virtualNetwork:
+                type: object
+                properties:
+                  addressSpace:
+                    type: array
+                    description: specifies the address prefixes for the virtual network
+                    items:
+                      type: string
+                      description: specifies the address prefix for the virtual network
+                  tags:
+                    type: object
+                    description: specifies the tags for the virtual network
+                    additionalProperties:
+                      type: string
+                required:
+                  - addressSpace
+              resourceGroup:
+                type: object
+                properties:
+                  tags:
+                    type: object
+                    description: specifies the tags for the virtual network
+            required:
+              - location
+    served: true
+    referenceable: true
+  claimNames:
+    kind: AksClusterClaim
+    plural: aksclusterclaims
