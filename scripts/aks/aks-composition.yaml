@@ -23,37 +23,11 @@ spec:
         spec:
           forProvider:
             defaultNodePool:
-              - name: default
-                nodeCount: 3
-                minCount: 3
-                maxCount: 5
-                vmSize: Standard_F8s_v2
-                enableAutoScaling: true
-                maxPods: 30
-                osDiskSizeGB: 128
-                type: VirtualMachineScaleSets
+              - type: VirtualMachineScaleSets
                 vnetSubnetIdSelector:
                   matchControllerRef: true
-            kubernetesVersion: 1.27.7
-            dnsPrefix: galaga
-            identity:
-              - type: SystemAssigned
-            location: West Europe
             resourceGroupNameSelector:
               matchControllerRef: true
-            roleBasedAccessControlEnabled: true
-            azureActiveDirectoryRoleBasedAccessControl:
-              - adminGroupObjectIds:
-                  - 4e4d0501-e693-4f3e-965b-5bec6c410c03
-                azureRbacEnabled: true
-                managed: true
-            azurePolicyEnabled: true
-            networkProfile:    
-              - dnsServiceIp: 172.16.0.10
-                networkPlugin: azure
-                serviceCidr: 172.16.0.0/16
-            tags:
-              Environment: Production
       patches:
         - type: PatchSet
           patchSetName: location-patch
@@ -78,17 +52,14 @@ spec:
           fromFieldPath: spec.aks.defaultNodePool.name
           toFieldPath: spec.forProvider.defaultNodePool[0].name
         - type: FromCompositeFieldPath
-          fromFieldPath: spec.aks.defaultNodePool.nodeCount
-          toFieldPath: spec.forProvider.defaultNodePool[0].nodeCount
-        - type: FromCompositeFieldPath
-          fromFieldPath: spec.aks.defaultNodePool.nodeCount
-          toFieldPath: spec.forProvider.defaultNodePool[0].nodeCount
+          fromFieldPath: spec.aks.defaultNodePool.maxCount
+          toFieldPath: spec.forProvider.defaultNodePool[0].maxCount
         - type: FromCompositeFieldPath
           fromFieldPath: spec.aks.defaultNodePool.minCount
           toFieldPath: spec.forProvider.defaultNodePool[0].minCount
         - type: FromCompositeFieldPath
-          fromFieldPath: spec.aks.defaultNodePool.maxCount
-          toFieldPath: spec.forProvider.defaultNodePool[0].maxCount
+          fromFieldPath: spec.aks.defaultNodePool.nodeCount
+          toFieldPath: spec.forProvider.defaultNodePool[0].nodeCount
         - type: FromCompositeFieldPath
           fromFieldPath: spec.aks.defaultNodePool.vmSize
           toFieldPath: spec.forProvider.defaultNodePool[0].vmSize
@@ -98,6 +69,24 @@ spec:
         - type: FromCompositeFieldPath
           fromFieldPath: spec.aks.defaultNodePool.maxPods
           toFieldPath: spec.forProvider.defaultNodePool[0].maxPods
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.aks.defaultNodePool.nodeLabels
+          toFieldPath: spec.forProvider.defaultNodePool[0].nodeLabels
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.aks.defaultNodePool.nodeTaints
+          toFieldPath: spec.forProvider.defaultNodePool[0].nodeTaints
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.aks.defaultNodePool.osDiskType
+          toFieldPath: spec.forProvider.defaultNodePool[0].osDiskType
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.aks.defaultNodePool.onlyCriticalAddonsEnabled
+          toFieldPath: spec.forProvider.defaultNodePool[0].onlyCriticalAddonsEnabled
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.aks.defaultNodePool.osSku
+          toFieldPath: spec.forProvider.defaultNodePool[0].osSku
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.aks.defaultNodePool.osDiskSizeGb
+          toFieldPath: spec.forProvider.defaultNodePool[0].osDiskSizeGb
         - type: FromCompositeFieldPath
           fromFieldPath: spec.aks.defaultNodePool.type
           toFieldPath: spec.forProvider.defaultNodePool[0].type
@@ -120,33 +109,110 @@ spec:
           fromFieldPath: spec.aks.networkProfile
           toFieldPath: spec.forProvider.networkProfile
         - type: FromCompositeFieldPath
+          fromFieldPath: spec.aks.identity
+          toFieldPath: spec.forProvider.identity
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.aks.localAccountDisabled
+          toFieldPath: spec.forProvider.localAccountDisabled
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.aks.oidcIssuerEnabled
+          toFieldPath: spec.forProvider.oidcIssuerEnabled
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.aks.workloadIdentityEnabled
+          toFieldPath: spec.forProvider.workloadIdentityEnabled
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.aks.privateClusterEnabled
+          toFieldPath: spec.forProvider.privateClusterEnabled
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.aks.privateClusterPublicFqdnEnabled
+          toFieldPath: spec.forProvider.privateClusterPublicFqdnEnabled
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.aks.workloadAutoscalerProfile
+          toFieldPath: spec.forProvider.workloadAutoscalerProfile
+        - type: FromCompositeFieldPath
           fromFieldPath: spec.aks.tags
           toFieldPath: spec.forProvider.tags
+    - name: user-node-pool
+      base:
+        apiVersion: containerservice.azure.upbound.io/v1beta1
+        kind: KubernetesClusterNodePool
+        spec:
+          forProvider:
+            vnetSubnetIdSelector:
+              matchControllerRef: true
+            kubernetesClusterIdSelector:
+              matchControllerRef: true
+      patches:
+        - type: PatchSet
+          patchSetName: metadata-patch
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.userNodePool.name
+          toFieldPath: metadata.annotations[crossplane.io/external-name]
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.userNodePool.maxCount
+          toFieldPath: spec.forProvider.maxCount
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.userNodePool.minCount
+          toFieldPath: spec.forProvider.minCount
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.userNodePool.nodeCount
+          toFieldPath: spec.forProvider.nodeCount
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.userNodePool.vmSize
+          toFieldPath: spec.forProvider.vmSize
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.userNodePool.enableAutoScaling
+          toFieldPath: spec.forProvider.enableAutoScaling
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.userNodePool.maxPods
+          toFieldPath: spec.forProvider.maxPods
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.userNodePool.nodeLabels
+          toFieldPath: spec.forProvider.nodeLabels
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.userNodePool.nodeTaints
+          toFieldPath: spec.forProvider.nodeTaints
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.userNodePool.osDiskType
+          toFieldPath: spec.forProvider.osDiskType
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.userNodePool.osSku
+          toFieldPath: spec.forProvider.osSku
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.userNodePool.osDiskSizeGb
+          toFieldPath: spec.forProvider.osDiskSizeGb
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.userNodePool.osType
+          toFieldPath: spec.forProvider.osType
     - name: default-subnet
       base:
         apiVersion: network.azure.upbound.io/v1beta1
         kind: Subnet
         spec:
           forProvider:
-            addressPrefixes:
-              - 10.0.0.0/16
             virtualNetworkNameSelector:
               matchControllerRef: true
             resourceGroupNameSelector:
               matchControllerRef: true
       patches:
         - type: FromCompositeFieldPath
+          fromFieldPath: spec.subnet.name
+          toFieldPath: metadata.annotations[crossplane.io/external-name]
+        - type: FromCompositeFieldPath
           fromFieldPath: spec.subnet.addressPrefixes
           toFieldPath: spec.forProvider.addressPrefixes
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.subnet.privateEndpointNetworkPoliciesEnabled
+          toFieldPath: spec.forProvider.privateEndpointNetworkPoliciesEnabled
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.subnet.privateLinkServiceNetworkPoliciesEnabled
+          toFieldPath: spec.forProvider.privateLinkServiceNetworkPoliciesEnabled
     - name: virtual-network
       base:
         apiVersion: network.azure.upbound.io/v1beta1
         kind: VirtualNetwork
         spec:
           forProvider:
-            addressSpace:
-              - 10.0.0.0/8
-            location: West Europe
             resourceGroupNameSelector:
               matchControllerRef: true
       patches:
@@ -173,7 +239,7 @@ spec:
         kind: ResourceGroup
         spec:
           forProvider:
-            location: Central US
+            name: temp
       patches:
         - type: PatchSet
           patchSetName: location-patch
