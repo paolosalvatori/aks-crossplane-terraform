@@ -4,7 +4,7 @@ metadata:
   name: sandokan
   annotations:
     crossplane.io/external-name: Sandokan
-spec: 
+spec:
   location: "North Europe"
   aks:
     defaultNodePool:
